@@ -8,9 +8,15 @@ class OperationCard extends StatelessWidget {
   const OperationCard({
     super.key,
     required this.operation,
+    this.onTap,
+    this.onLongPress,
   });
 
   final Operation operation;
+
+  final VoidCallback? onTap;
+
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -18,6 +24,8 @@ class OperationCard extends StatelessWidget {
 
     return Card(
       child: ListTile(
+        onTap: onTap,
+        onLongPress: onLongPress,
         leading: CircleAvatar(
           backgroundColor: isExpense ? Colors.red : Colors.green,
           child: Icon(

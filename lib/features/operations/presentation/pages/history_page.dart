@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/operation_providers.dart';
 import '../widgets/operation_card.dart';
 import '../providers/search_provider.dart';
+import '../providers/editing_operation_provider.dart';
+import '../providers/navigation_provider.dart';
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -55,12 +57,18 @@ class HistoryPage extends ConsumerWidget {
                       separatorBuilder: (context, index) =>
                           const SizedBox(height: 8),
                       itemBuilder: (context, index) {
-                        final operation = filteredList[index];
+                      final operation = filteredList[index];
 
-                        return OperationCard(
-                          operation: operation,
-                        );
-                      },
+                      return OperationCard(
+                        operation: operation,
+                        onTap: () {
+                          debugPrint('Pulsada operación: ${operation.concept}');
+
+                          ref.read(editingOperationProvider.notifier).state = operation;
+                          ref.read(navigationIndexProvider.notifier).state = 0;
+                        },
+                      );
+                    },
                     ),
                   ),
           ),

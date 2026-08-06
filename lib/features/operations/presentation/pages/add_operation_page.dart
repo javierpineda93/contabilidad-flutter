@@ -5,6 +5,7 @@ import '../../domain/entities/operation.dart';
 import '../providers/operation_providers.dart';
 import '../../domain/entities/operation_type.dart';
 import '../providers/add_operation_form_provider.dart';
+import '../providers/editing_operation_provider.dart';
 
 class AddOperationPage extends ConsumerStatefulWidget {
   const AddOperationPage({super.key});
@@ -24,6 +25,29 @@ class _AddOperationPageState
   final _conceptController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+
+    ref.listenManual(
+      editingOperationProvider,
+      (previous, next) {
+        if (next == null) return;
+
+        _amountController.text = next.amount.toString();
+        _conceptController.text = next.concept;
+
+        ref.read(addOperationFormProvider.notifier).changeType(
+              next.type,
+            );
+
+        ref.read(addOperationFormProvider.notifier).changeDate(
+              next.date,
+            );
+      },
+    );
+  }
+
+  @override
   void dispose() {
     _amountController.dispose();
     _conceptController.dispose();
@@ -33,7 +57,7 @@ class _AddOperationPageState
   @override
   Widget build(BuildContext context) {
     final form = ref.watch(addOperationFormProvider);
-
+    final editingOperation = ref.watch(editingOperationProvider);
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -147,26 +171,45 @@ class _AddOperationPageState
 
                   if (amount == null) {
                     messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('El importe no es válido'),
+                      SnackBar(
+                        content: Text(
+                          editingOperation == null
+                              ? 'Operación guardada correctamente'
+                              : 'Operación actualizada correctamente',
+                        ),
                       ),
                     );
-                    return;
                   }
 
-                  final operation = Operation.create(
-                    type: form.type,
-                    amount: amount,
-                    concept: _conceptController.text.trim(),
-                    date: form.date ?? DateTime.now(),
-                  );
+                  final operation = editingOperation == null
+                    ? Operation.create(
+                        type: form.type,
+                        amount: amount!,
+                        concept: _conceptController.text.trim(),
+                        date: form.date ?? DateTime.now(),
+                      )
+                    : editingOperation.copyWith(
+                        type: form.type,
+                        amount: amount!,
+                        concept: _conceptController.text.trim(),
+                        date: form.date ?? DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
 
                   try {
+
                     final useCases = ref.read(operationUseCasesProvider);
 
+                    if (editingOperation == null) {
                     await useCases.add(operation);
+                    } else {
+                      await useCases.update(operation);
+                    } 
                     ref.invalidate(operationsProvider);
+                    ref.read(editingOperationProvider.notifier).state = null;
 
+                    _amountController.clear();
+                    _conceptController.clear();
 
                     if (!mounted) return;
 
@@ -196,8 +239,11 @@ class _AddOperationPageState
                     );
                   }
                 },
-                child: const Text(
-                  'Guardar operación',
+                child: Text(
+                  editingOperation == null
+                      ? 'Guardar operación'
+                      :
+                  'Actualizar operación',
                 ),
               ),
             ],
@@ -206,4 +252,5 @@ class _AddOperationPageState
       ),
     );
   }
+
 }
