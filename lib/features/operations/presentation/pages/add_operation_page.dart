@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-
+import '../../domain/entities/operation.dart';
+import '../providers/operation_providers.dart';
 import '../../domain/entities/operation_type.dart';
 import '../providers/add_operation_form_provider.dart';
 
@@ -131,15 +132,66 @@ class _AddOperationPageState
               const SizedBox(height: 32),
 
               FilledButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
+                onPressed: () async {
+                  FocusScope.of(context).unfocus();
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                  if (!_formKey.currentState!.validate()) {
+                    return;
+                  }
+
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  final amount = double.tryParse(
+                    _amountController.text.replaceAll(',', '.'),
+                  );
+
+                  if (amount == null) {
+                    messenger.showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          'Formulario válido',
-                        ),
+                        content: Text('El importe no es válido'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final operation = Operation.create(
+                    type: form.type,
+                    amount: amount,
+                    concept: _conceptController.text.trim(),
+                    date: form.date ?? DateTime.now(),
+                  );
+
+                  try {
+                    final useCases = ref.read(operationUseCasesProvider);
+
+                    await useCases.add(operation);
+                    ref.invalidate(operationsProvider);
+
+
+                    if (!mounted) return;
+
+                    _amountController.clear();
+                    _conceptController.clear();
+
+                    ref.read(addOperationFormProvider.notifier).changeType(
+                      OperationType.expense,
+                    );
+
+                    ref.read(addOperationFormProvider.notifier).changeDate(
+                      DateTime.now(),
+                    );
+
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Operación guardada correctamente'),
+                      ),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Error al guardar: $e'),
                       ),
                     );
                   }

@@ -15,6 +15,8 @@ import '../../domain/usecases/get_operation_by_id.dart';
 import '../../domain/usecases/get_operations.dart';
 import '../../domain/usecases/operation_use_cases.dart';
 import '../../domain/usecases/update_operation.dart';
+import '../../domain/entities/operation.dart';
+import '../../domain/usecases/base/no_params.dart';
 
 final databaseHelperProvider =
     Provider<DatabaseHelper>((ref) {
@@ -46,5 +48,13 @@ final operationUseCasesProvider =
     delete: DeleteOperation(repository),
     getAll: GetOperations(repository),
     getById: GetOperationById(repository),
+  );
+});
+
+final operationsProvider = FutureProvider<List<Operation>>((ref) async {
+  final useCases = ref.watch(operationUseCasesProvider);
+
+  return useCases.getAll(
+    const NoParams(),
   );
 });

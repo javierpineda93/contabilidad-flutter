@@ -44,4 +44,29 @@ class Operation {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+    Operation touch() {
+    return copyWith(
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  factory Operation.create({
+  required OperationType type,
+  required double amount,
+  required String concept,
+  DateTime? date,
+ }) {
+  final now = DateTime.now();
+
+  return Operation(
+    type: type,
+    amount: amount,
+    concept: concept,
+    date: date ?? now,
+    createdAt: now,
+    updatedAt: now,
+  );
+ }
+ 
 }
