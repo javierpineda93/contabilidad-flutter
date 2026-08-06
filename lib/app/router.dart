@@ -1,24 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-final GoRouter appRouter = GoRouter(
+import '../features/operations/presentation/pages/home_page.dart';
+
+final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
     GoRoute(
       path: '/',
-      builder: (context, state) {
-        return const Scaffold(
-          body: Center(
-            child: Text(
-              'Contabilidad Personal',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        );
-      },
+      builder: (context, state) => const HomePage(),
     ),
   ],
 );
