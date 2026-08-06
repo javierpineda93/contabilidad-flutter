@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-
-import '../../domain/entities/operation.dart';
 import '../providers/operation_providers.dart';
+import '../widgets/operation_card.dart';
+import '../providers/search_provider.dart';
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -11,78 +10,63 @@ class HistoryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final operations = ref.watch(operationsProvider);
-
+    final search = ref.watch(searchProvider);
     return operations.when(
       loading: () => const Center(
         child: CircularProgressIndicator(),
       ),
-      error: (error, _) => Center(
+      error: (error, stackTrace) => Center(
         child: Text(error.toString()),
       ),
       data: (list) {
-        if (list.isEmpty) {
-          return const Center(
-            child: Text(
-              'Todavía no hay operaciones',
+      final filteredList = list.where((operation) {
+        return operation.concept
+            .toLowerCase()
+            .contains(search.toLowerCase());
+      }).toList();
+
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Buscar por concepto',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                ref.read(searchProvider.notifier).state = value;
+              },
             ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: list.length,
-          itemBuilder: (_, index) {
-            final operation = list[index];
-
-            return _OperationTile(
-              operation: operation,
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-class _OperationTile extends StatelessWidget {
-  const _OperationTile({
-    required this.operation,
-  });
-
-  final Operation operation;
-
-  @override
-  Widget build(BuildContext context) {
-    final isExpense = operation.type.name == 'expense';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              isExpense ? Colors.red : Colors.green,
-          child: Icon(
-            isExpense
-                ? Icons.remove
-                : Icons.add,
-            color: Colors.white,
           ),
-        ),
-        title: Text(operation.concept),
-        subtitle: Text(
-          DateFormat(
-            'dd/MM/yyyy',
-          ).format(operation.date),
-        ),
-        trailing: Text(
-          '${isExpense ? '-' : '+'}${operation.amount.toStringAsFixed(2)} €',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color:
-                isExpense ? Colors.red : Colors.green,
+          Expanded(
+            child: filteredList.isEmpty
+                ? const Center(
+                    child: Text('No se encontraron operaciones'),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(operationsProvider);
+                    },
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: filteredList.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final operation = filteredList[index];
+
+                        return OperationCard(
+                          operation: operation,
+                        );
+                      },
+                    ),
+                  ),
           ),
-        ),
-      ),
+        ],
+      );
+    },
     );
   }
 }
