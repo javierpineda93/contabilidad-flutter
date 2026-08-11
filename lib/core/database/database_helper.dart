@@ -1,5 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart';
 
 class DatabaseHelper {
   DatabaseHelper._();
@@ -21,6 +22,8 @@ class DatabaseHelper {
       await getDatabasesPath(),
       'contabilidad.db',
     );
+
+    debugPrint('SQLite database path: $path');
 
     return openDatabase(
       path,

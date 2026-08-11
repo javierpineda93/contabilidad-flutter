@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../../../../../core/database/database_helper.dart';
 import '../../models/operation_model.dart';
 import 'operations_local_datasource.dart';
+import 'package:flutter/foundation.dart';
 
 class OperationsLocalDataSourceImpl
     implements OperationsLocalDataSource {
@@ -16,10 +17,14 @@ class OperationsLocalDataSourceImpl
   Future<void> insert(OperationModel operation) async {
     final db = await _db;
 
-    await db.insert(
+    final id = await db.insert(
       'operations',
       operation.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    debugPrint(
+      'SQLite INSERT → id: $id, datos: ${operation.toMap()}',
     );
   }
 
@@ -53,6 +58,14 @@ class OperationsLocalDataSourceImpl
     final result = await db.query(
       'operations',
       orderBy: 'date DESC',
+    );
+
+    debugPrint(
+      'SQLite GET ALL → ${result.length} operaciones',
+    );
+
+    debugPrint(
+      'SQLite DATOS → $result',
     );
 
     return result

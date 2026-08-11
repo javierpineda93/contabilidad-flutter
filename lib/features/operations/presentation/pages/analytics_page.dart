@@ -6,6 +6,7 @@ import '../../domain/entities/operation.dart';
 import '../../domain/entities/operation_type.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/operation_providers.dart';
+import '../../domain/utils/operation_summary.dart';
 
 class AnalyticsPage extends ConsumerWidget {
   const AnalyticsPage({super.key});
@@ -30,18 +31,12 @@ class AnalyticsPage extends ConsumerWidget {
           selectedPeriod,
         );
 
-        double income = 0;
-        double expenses = 0;
+        final summary =
+        OperationSummary.fromOperations(filteredList);
 
-        for (final operation in filteredList) {
-          if (operation.type == OperationType.income) {
-            income += operation.amount;
-          } else {
-            expenses += operation.amount;
-          }
-        }
-
-        final balance = income - expenses;
+        final income = summary.income;
+        final expenses = summary.expenses;
+        final balance = summary.balance;
 
         final monthlyData = _buildMonthlyData(filteredList);
 

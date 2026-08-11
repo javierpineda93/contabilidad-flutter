@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/entities/operation_type.dart';
+import '../../domain/utils/operation_history_filter.dart';
 import '../providers/editing_operation_provider.dart';
 import '../providers/history_filter_provider.dart';
 import '../providers/navigation_provider.dart';
@@ -17,6 +17,7 @@ class HistoryPage extends ConsumerWidget {
     final operations = ref.watch(operationsProvider);
     final search = ref.watch(searchProvider);
     final historyFilter = ref.watch(historyFilterProvider);
+    const historyFilterLogic = OperationHistoryFilter();
 
     return operations.when(
       loading: () => const Center(
@@ -26,31 +27,12 @@ class HistoryPage extends ConsumerWidget {
         child: Text(error.toString()),
       ),
       data: (list) {
-        final searchText = search.trim().toLowerCase();
 
-        final filteredList = list.where((operation) {
-          final concept = operation.concept.toLowerCase();
-
-          final typeSearchText =
-              operation.type == OperationType.income
-                  ? 'ingreso ingresos income'
-                  : 'gasto gastos expense';
-
-          final matchesSearch =
-              searchText.isEmpty ||
-              concept.contains(searchText) ||
-              typeSearchText.contains(searchText);
-
-          final matchesType = switch (historyFilter) {
-            HistoryFilter.all => true,
-            HistoryFilter.income =>
-              operation.type == OperationType.income,
-            HistoryFilter.expense =>
-              operation.type == OperationType.expense,
-          };
-
-          return matchesSearch && matchesType;
-        }).toList();
+        final filteredList = historyFilterLogic.filter(
+        operations: list,
+        type: historyFilter,
+        search: search,
+      );
 
         return Column(
           children: [
