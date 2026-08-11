@@ -62,10 +62,71 @@ class HistoryPage extends ConsumerWidget {
                       return OperationCard(
                         operation: operation,
                         onTap: () {
-                          debugPrint('Pulsada operación: ${operation.concept}');
-
                           ref.read(editingOperationProvider.notifier).state = operation;
                           ref.read(navigationIndexProvider.notifier).state = 0;
+                        },
+                        onLongPress: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) {
+                              return AlertDialog(
+                                title: const Text('Eliminar operación'),
+                                content: Text(
+                                  '¿Quieres eliminar "${operation.concept}"?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(dialogContext).pop(false);
+                                    },
+                                    child: const Text('Cancelar'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () {
+                                      Navigator.of(dialogContext).pop(true);
+                                    },
+                                    child: const Text('Eliminar'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+
+                          if (confirmed != true) {
+                            return;
+                          }
+
+                          if (operation.id == null) {
+                            return;
+                          }
+
+                          try {
+                            final useCases = ref.read(operationUseCasesProvider);
+
+                            await useCases.delete(operation.id!);
+
+                            ref.invalidate(operationsProvider);
+
+                            if (!context.mounted) {
+                              return;
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Operación eliminada correctamente'),
+                              ),
+                            );
+                          } catch (e) {
+                            if (!context.mounted) {
+                              return;
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error al eliminar: $e'),
+                              ),
+                            );
+                          }
                         },
                       );
                     },
