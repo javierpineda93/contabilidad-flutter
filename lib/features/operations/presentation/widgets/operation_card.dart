@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../domain/entities/operation.dart';
 import '../../domain/entities/operation_type.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class OperationCard extends StatelessWidget {
   const OperationCard({
@@ -42,7 +43,7 @@ class OperationCard extends StatelessWidget {
           DateFormat('dd/MM/yyyy').format(operation.date),
         ),
         trailing: Text(
-          '${isExpense ? '-' : '+'}${operation.amount.toStringAsFixed(2)} €',
+          '${isExpense ? '-' : '+'}${currencyFormatter.format(operation.amount)}',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: isExpense ? Colors.red : Colors.green,
