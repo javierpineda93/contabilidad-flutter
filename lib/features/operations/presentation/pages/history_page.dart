@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/operation_providers.dart';
-import '../widgets/operation_card.dart';
-import '../providers/search_provider.dart';
+
+import '../../domain/entities/operation_type.dart';
 import '../providers/editing_operation_provider.dart';
+import '../providers/history_filter_provider.dart';
 import '../providers/navigation_provider.dart';
+import '../providers/operation_providers.dart';
+import '../providers/search_provider.dart';
+import '../widgets/operation_card.dart';
 
 class HistoryPage extends ConsumerWidget {
   const HistoryPage({super.key});
@@ -13,6 +16,8 @@ class HistoryPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final operations = ref.watch(operationsProvider);
     final search = ref.watch(searchProvider);
+    final historyFilter = ref.watch(historyFilterProvider);
+
     return operations.when(
       loading: () => const Center(
         child: CircularProgressIndicator(),
@@ -21,121 +26,216 @@ class HistoryPage extends ConsumerWidget {
         child: Text(error.toString()),
       ),
       data: (list) {
-      final filteredList = list.where((operation) {
-        return operation.concept
-            .toLowerCase()
-            .contains(search.toLowerCase());
-      }).toList();
+        final searchText = search.trim().toLowerCase();
 
-      return Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Buscar por concepto',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+        final filteredList = list.where((operation) {
+          final concept = operation.concept.toLowerCase();
+
+          final typeSearchText =
+              operation.type == OperationType.income
+                  ? 'ingreso ingresos income'
+                  : 'gasto gastos expense';
+
+          final matchesSearch =
+              searchText.isEmpty ||
+              concept.contains(searchText) ||
+              typeSearchText.contains(searchText);
+
+          final matchesType = switch (historyFilter) {
+            HistoryFilter.all => true,
+            HistoryFilter.income =>
+              operation.type == OperationType.income,
+            HistoryFilter.expense =>
+              operation.type == OperationType.expense,
+          };
+
+          return matchesSearch && matchesType;
+        }).toList();
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                8,
               ),
-              onChanged: (value) {
-                ref.read(searchProvider.notifier).state = value;
-              },
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Buscar por concepto',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  ref.read(searchProvider.notifier).state = value;
+                },
+              ),
             ),
-          ),
-          Expanded(
-            child: filteredList.isEmpty
-                ? const Center(
-                    child: Text('No se encontraron operaciones'),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      ref.invalidate(operationsProvider);
-                    },
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: filteredList.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                      final operation = filteredList[index];
 
-                      return OperationCard(
-                        operation: operation,
-                        onTap: () {
-                          ref.read(editingOperationProvider.notifier).state = operation;
-                          ref.read(navigationIndexProvider.notifier).state = 0;
-                        },
-                        onLongPress: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (dialogContext) {
-                              return AlertDialog(
-                                title: const Text('Eliminar operación'),
-                                content: Text(
-                                  '¿Quieres eliminar "${operation.concept}"?',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(dialogContext).pop(false);
-                                    },
-                                    child: const Text('Cancelar'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () {
-                                      Navigator.of(dialogContext).pop(true);
-                                    },
-                                    child: const Text('Eliminar'),
-                                  ),
-                                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              child: SegmentedButton<HistoryFilter>(
+                segments: const [
+                  ButtonSegment(
+                    value: HistoryFilter.all,
+                    label: Text('Todas'),
+                  ),
+                  ButtonSegment(
+                    value: HistoryFilter.income,
+                    label: Text('Ingresos'),
+                  ),
+                  ButtonSegment(
+                    value: HistoryFilter.expense,
+                    label: Text('Gastos'),
+                  ),
+                ],
+                selected: {historyFilter},
+                onSelectionChanged: (selection) {
+                  ref
+                      .read(historyFilterProvider.notifier)
+                      .state = selection.first;
+                },
+              ),
+            ),
+
+            Expanded(
+              child: filteredList.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No se encontraron operaciones',
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(operationsProvider);
+                      },
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                        itemCount: filteredList.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          final operation = filteredList[index];
+
+                          return OperationCard(
+                            operation: operation,
+                            onTap: () {
+                              ref
+                                  .read(
+                                    editingOperationProvider.notifier,
+                                  )
+                                  .state = operation;
+
+                              ref
+                                  .read(
+                                    navigationIndexProvider.notifier,
+                                  )
+                                  .state = 0;
+                            },
+                            onLongPress: () async {
+                              final confirmed =
+                                  await showDialog<bool>(
+                                context: context,
+                                builder: (dialogContext) {
+                                  return AlertDialog(
+                                    title: const Text(
+                                      'Eliminar operación',
+                                    ),
+                                    content: Text(
+                                      '¿Quieres eliminar '
+                                      '"${operation.concept}"?',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(
+                                            dialogContext,
+                                          ).pop(false);
+                                        },
+                                        child: const Text(
+                                          'Cancelar',
+                                        ),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () {
+                                          Navigator.of(
+                                            dialogContext,
+                                          ).pop(true);
+                                        },
+                                        child: const Text(
+                                          'Eliminar',
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               );
+
+                              if (confirmed != true) {
+                                return;
+                              }
+
+                              if (operation.id == null) {
+                                return;
+                              }
+
+                              try {
+                                final useCases = ref.read(
+                                  operationUseCasesProvider,
+                                );
+
+                                await useCases.delete(
+                                  operation.id!,
+                                );
+
+                                ref.invalidate(
+                                  operationsProvider,
+                                );
+
+                                if (!context.mounted) {
+                                  return;
+                                }
+
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Operación eliminada '
+                                      'correctamente',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) {
+                                  return;
+                                }
+
+                                ScaffoldMessenger.of(
+                                  context,
+                                ).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Error al eliminar: $e',
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                           );
-
-                          if (confirmed != true) {
-                            return;
-                          }
-
-                          if (operation.id == null) {
-                            return;
-                          }
-
-                          try {
-                            final useCases = ref.read(operationUseCasesProvider);
-
-                            await useCases.delete(operation.id!);
-
-                            ref.invalidate(operationsProvider);
-
-                            if (!context.mounted) {
-                              return;
-                            }
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Operación eliminada correctamente'),
-                              ),
-                            );
-                          } catch (e) {
-                            if (!context.mounted) {
-                              return;
-                            }
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error al eliminar: $e'),
-                              ),
-                            );
-                          }
                         },
-                      );
-                    },
+                      ),
                     ),
-                  ),
-          ),
-        ],
-      );
-    },
+            ),
+          ],
+        );
+      },
     );
   }
 }
