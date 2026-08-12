@@ -23,8 +23,6 @@ class DatabaseHelper {
       'contabilidad.db',
     );
 
-    debugPrint('SQLite database path: $path');
-
     return openDatabase(
       path,
       version: 1,

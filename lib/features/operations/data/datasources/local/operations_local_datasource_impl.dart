@@ -23,9 +23,6 @@ class OperationsLocalDataSourceImpl
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
 
-    debugPrint(
-      'SQLite INSERT → id: $id, datos: ${operation.toMap()}',
-    );
   }
 
   @override
@@ -58,14 +55,6 @@ class OperationsLocalDataSourceImpl
     final result = await db.query(
       'operations',
       orderBy: 'date DESC',
-    );
-
-    debugPrint(
-      'SQLite GET ALL → ${result.length} operaciones',
-    );
-
-    debugPrint(
-      'SQLite DATOS → $result',
     );
 
     return result
