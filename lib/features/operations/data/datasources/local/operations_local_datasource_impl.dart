@@ -24,6 +24,27 @@ class OperationsLocalDataSourceImpl
   }
 
   @override
+  Future<void> insertAll(
+    List<OperationModel> operations,
+  ) async {
+    if (operations.isEmpty) {
+      return;
+    }
+
+    final db = await _db;
+
+    await db.transaction((transaction) async {
+      for (final operation in operations) {
+        await transaction.insert(
+          'operations',
+          operation.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
+  @override
   Future<void> update(OperationModel operation) async {
     final db = await _db;
 

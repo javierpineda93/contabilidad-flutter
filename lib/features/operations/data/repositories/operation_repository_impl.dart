@@ -16,6 +16,17 @@ class OperationRepositoryImpl implements OperationRepository {
   }
 
   @override
+  Future<void> addAll(
+    List<Operation> operations,
+  ) async {
+    final models = operations
+        .map(OperationModel.fromEntity)
+        .toList();
+
+    await _localDataSource.insertAll(models);
+  }
+
+  @override
   Future<void> delete(int id) {
     return _localDataSource.delete(id);
   }

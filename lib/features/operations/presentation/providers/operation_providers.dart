@@ -17,6 +17,8 @@ import '../../domain/usecases/operation_use_cases.dart';
 import '../../domain/usecases/update_operation.dart';
 import '../../domain/entities/operation.dart';
 import '../../domain/usecases/base/no_params.dart';
+import '../../domain/usecases/restore_operations.dart';
+import '../../services/operations_backup_services.dart';
 
 final databaseHelperProvider =
     Provider<DatabaseHelper>((ref) {
@@ -43,18 +45,25 @@ final operationUseCasesProvider =
       ref.watch(operationRepositoryProvider);
 
   return OperationUseCases(
-    add: AddOperation(repository),
-    update: UpdateOperation(repository),
-    delete: DeleteOperation(repository),
-    getAll: GetOperations(repository),
-    getById: GetOperationById(repository),
+  add: AddOperation(repository),
+  update: UpdateOperation(repository),
+  delete: DeleteOperation(repository),
+  getAll: GetOperations(repository),
+  getById: GetOperationById(repository),
+  restore: RestoreOperations(repository),
   );
 });
 
-final operationsProvider = FutureProvider<List<Operation>>((ref) async {
+final operationsProvider =
+    FutureProvider<List<Operation>>((ref) async {
   final useCases = ref.watch(operationUseCasesProvider);
 
   return useCases.getAll(
     const NoParams(),
   );
+});
+
+final operationsBackupServiceProvider =
+    Provider<OperationsBackupService>((ref) {
+  return OperationsBackupService();
 });

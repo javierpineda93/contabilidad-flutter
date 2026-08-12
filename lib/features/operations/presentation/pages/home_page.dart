@@ -5,6 +5,7 @@ import '../providers/navigation_provider.dart';
 import 'add_operation_page.dart';
 import 'analytics_page.dart';
 import 'history_page.dart';
+import 'settings_page.dart';
 import '../providers/editing_operation_provider.dart';
 
 class HomePage extends ConsumerWidget {
@@ -33,6 +34,19 @@ class HomePage extends ConsumerWidget {
               ? 'Editar operación'
               : titles[currentIndex],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Ajustes',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SettingsPage(),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: IndexedStack(
         index: currentIndex,

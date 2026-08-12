@@ -2,14 +2,29 @@ import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseHelper {
-  DatabaseHelper._();
+  DatabaseHelper._({
+    this.databaseName = 'contabilidad.db',
+    this.inMemory = false,
+  });
 
   static final DatabaseHelper instance = DatabaseHelper._();
+
+  factory DatabaseHelper.forTesting() {
+    return DatabaseHelper._(
+      databaseName: 'contabilidad_test.db',
+      inMemory: true,
+    );
+  }
+
+  final String databaseName;
+  final bool inMemory;
 
   Database? _database;
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null) {
+      return _database!;
+    }
 
     _database = await _initDatabase();
 
@@ -17,10 +32,12 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    final path = join(
-      await getDatabasesPath(),
-      'contabilidad.db',
-    );
+    final path = inMemory
+        ? inMemoryDatabasePath
+        : join(
+            await getDatabasesPath(),
+            databaseName,
+          );
 
     return openDatabase(
       path,
@@ -52,5 +69,16 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_operations_concept ON operations(concept)',
     );
+  }
+
+  Future<void> close() async {
+    final db = _database;
+
+    if (db == null) {
+      return;
+    }
+
+    await db.close();
+    _database = null;
   }
 }
