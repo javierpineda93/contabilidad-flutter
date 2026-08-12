@@ -3,7 +3,6 @@ import 'package:sqflite/sqflite.dart';
 import '../../../../../core/database/database_helper.dart';
 import '../../models/operation_model.dart';
 import 'operations_local_datasource.dart';
-import 'package:flutter/foundation.dart';
 
 class OperationsLocalDataSourceImpl
     implements OperationsLocalDataSource {
@@ -17,12 +16,11 @@ class OperationsLocalDataSourceImpl
   Future<void> insert(OperationModel operation) async {
     final db = await _db;
 
-    final id = await db.insert(
+    await db.insert(
       'operations',
       operation.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-
   }
 
   @override

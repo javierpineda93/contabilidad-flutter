@@ -5,6 +5,7 @@ import '../providers/navigation_provider.dart';
 import 'add_operation_page.dart';
 import 'analytics_page.dart';
 import 'history_page.dart';
+import '../providers/editing_operation_provider.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -12,7 +13,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(navigationIndexProvider);
-
+    final editingOperation = ref.watch(editingOperationProvider);
     const pages = [
       AddOperationPage(),
       HistoryPage(),
@@ -27,7 +28,11 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[currentIndex]),
+        title: Text(
+          currentIndex == 0 && editingOperation != null
+              ? 'Editar operación'
+              : titles[currentIndex],
+        ),
       ),
       body: IndexedStack(
         index: currentIndex,

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../domain/entities/operation.dart';
-import '../providers/operation_providers.dart';
 import '../../domain/entities/operation_type.dart';
 import '../providers/add_operation_form_provider.dart';
 import '../providers/editing_operation_provider.dart';
+import '../providers/operation_providers.dart';
 
 class AddOperationPage extends ConsumerStatefulWidget {
   const AddOperationPage({super.key});
@@ -15,9 +16,7 @@ class AddOperationPage extends ConsumerStatefulWidget {
       _AddOperationPageState();
 }
 
-class _AddOperationPageState
-    extends ConsumerState<AddOperationPage> {
-
+class _AddOperationPageState extends ConsumerState<AddOperationPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _amountController = TextEditingController();
@@ -28,23 +27,54 @@ class _AddOperationPageState
   void initState() {
     super.initState();
 
-    ref.listenManual(
+    ref.listenManual<Operation?>(
       editingOperationProvider,
       (previous, next) {
-        if (next == null) return;
+        if (next == null) {
+          return;
+        }
 
-        _amountController.text = next.amount.toString();
-        _conceptController.text = next.concept;
-
-        ref.read(addOperationFormProvider.notifier).changeType(
-              next.type,
-            );
-
-        ref.read(addOperationFormProvider.notifier).changeDate(
-              next.date,
-            );
+        _loadOperation(next);
       },
     );
+
+    final editingOperation = ref.read(editingOperationProvider);
+
+    if (editingOperation != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        _loadOperation(editingOperation);
+      });
+    }
+  }
+
+  void _loadOperation(Operation operation) {
+    _amountController.text = operation.amount.toString();
+    _conceptController.text = operation.concept;
+
+    ref
+        .read(addOperationFormProvider.notifier)
+        .changeType(operation.type);
+
+    ref
+        .read(addOperationFormProvider.notifier)
+        .changeDate(operation.date);
+  }
+
+  void _clearForm() {
+    _amountController.clear();
+    _conceptController.clear();
+
+    ref
+        .read(addOperationFormProvider.notifier)
+        .changeType(OperationType.expense);
+
+    ref
+        .read(addOperationFormProvider.notifier)
+        .changeDate(DateTime.now());
   }
 
   @override
@@ -58,6 +88,9 @@ class _AddOperationPageState
   Widget build(BuildContext context) {
     final form = ref.watch(addOperationFormProvider);
     final editingOperation = ref.watch(editingOperationProvider);
+
+    final isEditing = editingOperation != null;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -65,7 +98,6 @@ class _AddOperationPageState
           key: _formKey,
           child: Column(
             children: [
-
               DropdownButtonFormField<OperationType>(
                 initialValue: form.type,
                 decoration: const InputDecoration(
@@ -80,9 +112,7 @@ class _AddOperationPageState
                 onChanged: (value) {
                   if (value != null) {
                     ref
-                        .read(
-                          addOperationFormProvider.notifier,
-                        )
+                        .read(addOperationFormProvider.notifier)
                         .changeType(value);
                   }
                 },
@@ -92,16 +122,23 @@ class _AddOperationPageState
 
               TextFormField(
                 controller: _amountController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(
+                keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 decoration: const InputDecoration(
                   labelText: 'Importe',
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Introduce un importe';
+                  }
+
+                  final amount = double.tryParse(
+                    value.replaceAll(',', '.'),
+                  );
+
+                  if (amount == null || amount <= 0) {
+                    return 'Introduce un importe válido';
                   }
 
                   return null;
@@ -116,7 +153,7 @@ class _AddOperationPageState
                   labelText: 'Concepto',
                 ),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Introduce un concepto';
                   }
 
@@ -130,13 +167,11 @@ class _AddOperationPageState
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Fecha'),
                 subtitle: Text(
-                  DateFormat('dd/MM/yyyy')
-                      .format(form.date!),
+                  DateFormat('dd/MM/yyyy').format(form.date!),
                 ),
                 trailing: const Icon(Icons.calendar_month),
                 onTap: () async {
-                  final date =
-                      await showDatePicker(
+                  final date = await showDatePicker(
                     context: context,
                     initialDate: form.date!,
                     firstDate: DateTime(2020),
@@ -145,9 +180,7 @@ class _AddOperationPageState
 
                   if (date != null) {
                     ref
-                        .read(
-                          addOperationFormProvider.notifier,
-                        )
+                        .read(addOperationFormProvider.notifier)
                         .changeDate(date);
                   }
                 },
@@ -171,79 +204,80 @@ class _AddOperationPageState
 
                   if (amount == null) {
                     messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('El importe no es válido'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final operation = isEditing
+                      ? editingOperation.copyWith(
+                          type: form.type,
+                          amount: amount,
+                          concept: _conceptController.text.trim(),
+                          date: form.date ?? DateTime.now(),
+                          updatedAt: DateTime.now(),
+                        )
+                      : Operation.create(
+                          type: form.type,
+                          amount: amount,
+                          concept: _conceptController.text.trim(),
+                          date: form.date ?? DateTime.now(),
+                        );
+
+                  try {
+                    final useCases = ref.read(
+                      operationUseCasesProvider,
+                    );
+
+                    if (isEditing) {
+                      await useCases.update(operation);
+                    } else {
+                      await useCases.add(operation);
+                    }
+
+                    ref.invalidate(operationsProvider);
+
+                    ref
+                        .read(editingOperationProvider.notifier)
+                        .state = null;
+
+                    if (!mounted) {
+                      return;
+                    }
+
+                    _clearForm();
+
+                    messenger.showSnackBar(
                       SnackBar(
                         content: Text(
-                          editingOperation == null
-                              ? 'Operación guardada correctamente'
-                              : 'Operación actualizada correctamente',
+                          isEditing
+                              ? 'Operación actualizada correctamente'
+                              : 'Operación guardada correctamente',
                         ),
                       ),
                     );
-                  }
-
-                  final operation = editingOperation == null
-                    ? Operation.create(
-                        type: form.type,
-                        amount: amount!,
-                        concept: _conceptController.text.trim(),
-                        date: form.date ?? DateTime.now(),
-                      )
-                    : editingOperation.copyWith(
-                        type: form.type,
-                        amount: amount!,
-                        concept: _conceptController.text.trim(),
-                        date: form.date ?? DateTime.now(),
-                        updatedAt: DateTime.now(),
-                      );
-
-                  try {
-
-                    final useCases = ref.read(operationUseCasesProvider);
-
-                    if (editingOperation == null) {
-                    await useCases.add(operation);
-                    } else {
-                      await useCases.update(operation);
-                    } 
-                    ref.invalidate(operationsProvider);
-                    ref.read(editingOperationProvider.notifier).state = null;
-
-                    _amountController.clear();
-                    _conceptController.clear();
-
-                    if (!mounted) return;
-
-                    _amountController.clear();
-                    _conceptController.clear();
-
-                    ref.read(addOperationFormProvider.notifier).changeType(
-                      OperationType.expense,
-                    );
-
-                    ref.read(addOperationFormProvider.notifier).changeDate(
-                      DateTime.now(),
-                    );
-
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Operación guardada correctamente'),
-                      ),
-                    );
                   } catch (e) {
-                    if (!mounted) return;
+                    if (!mounted) {
+                      return;
+                    }
 
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text('Error al guardar: $e'),
+                        content: Text(
+                          isEditing
+                              ? 'Error al actualizar: $e'
+                              : 'Error al guardar: $e',
+                        ),
                       ),
                     );
                   }
                 },
                 child: Text(
-                  editingOperation == null
-                      ? 'Guardar operación'
-                      :
-                  'Actualizar operación',
+                  isEditing
+                      ? 'Actualizar operación'
+                      : 'Guardar operación',
                 ),
               ),
             ],
@@ -252,5 +286,4 @@ class _AddOperationPageState
       ),
     );
   }
-
 }

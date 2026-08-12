@@ -1,15 +1,29 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 import '../../domain/entities/operation.dart';
 import '../../domain/entities/operation_type.dart';
+import '../../domain/utils/operation_summary.dart';
 import '../providers/analytics_provider.dart';
 import '../providers/operation_providers.dart';
-import '../../domain/utils/operation_summary.dart';
 
 class AnalyticsPage extends ConsumerWidget {
   const AnalyticsPage({super.key});
+
+  String _formatChartValue(double value) {
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1)}M';
+    }
+
+    if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(0)}K';
+    }
+
+    return value.toStringAsFixed(0);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,13 +46,34 @@ class AnalyticsPage extends ConsumerWidget {
         );
 
         final summary =
-        OperationSummary.fromOperations(filteredList);
+            OperationSummary.fromOperations(filteredList);
 
         final income = summary.income;
         final expenses = summary.expenses;
         final balance = summary.balance;
 
         final monthlyData = _buildMonthlyData(filteredList);
+
+        // Escala del gráfico de ingresos vs. gastos.
+        final incomeExpensesMax =
+            income > expenses ? income : expenses;
+
+        final incomeExpensesScale =
+            _chartScale(incomeExpensesMax);
+
+        // Escala del gráfico de evolución mensual.
+        final monthlyMax = monthlyData.fold<double>(
+          0,
+          (max, month) {
+            final value = month.income > month.expenses
+                ? month.income
+                : month.expenses;
+
+            return value > max ? value : max;
+          },
+        );
+
+        final monthlyScale = _chartScale(monthlyMax);
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -111,7 +146,7 @@ class AnalyticsPage extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
-              // Gráfico actual: ingresos vs gastos.
+              // Gráfico de ingresos vs. gastos.
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -125,39 +160,58 @@ class AnalyticsPage extends ConsumerWidget {
                             .textTheme
                             .titleLarge,
                       ),
+
                       const SizedBox(height: 24),
+
                       SizedBox(
                         height: 250,
                         child: BarChart(
                           BarChartData(
                             alignment:
                                 BarChartAlignment.spaceAround,
-                            maxY: _chartMaxY(
-                              income,
-                              expenses,
-                            ),
+                            maxY: incomeExpensesScale.maxY,
+
                             barTouchData: BarTouchData(
                               enabled: true,
                             ),
+
                             titlesData: FlTitlesData(
                               leftTitles: AxisTitles(
                                 sideTitles: SideTitles(
                                   showTitles: true,
                                   reservedSize: 50,
+                                  interval:
+                                      incomeExpensesScale
+                                          .interval,
+                                  getTitlesWidget:
+                                      (value, meta) {
+                                    return Text(
+                                      _formatChartValue(
+                                        value,
+                                      ),
+                                      style:
+                                          const TextStyle(
+                                        fontSize: 11,
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
+
                               rightTitles:
                                   const AxisTitles(
                                 sideTitles: SideTitles(
                                   showTitles: false,
                                 ),
                               ),
+
                               topTitles:
                                   const AxisTitles(
                                 sideTitles: SideTitles(
                                   showTitles: false,
                                 ),
                               ),
+
                               bottomTitles: AxisTitles(
                                 sideTitles: SideTitles(
                                   showTitles: true,
@@ -169,10 +223,12 @@ class AnalyticsPage extends ConsumerWidget {
                                         return const Text(
                                           'Ingresos',
                                         );
+
                                       case 1:
                                         return const Text(
                                           'Gastos',
                                         );
+
                                       default:
                                         return const SizedBox
                                             .shrink();
@@ -181,13 +237,16 @@ class AnalyticsPage extends ConsumerWidget {
                                 ),
                               ),
                             ),
+
                             borderData: FlBorderData(
                               show: false,
                             ),
+
                             gridData:
                                 const FlGridData(
                               show: true,
                             ),
+
                             barGroups: [
                               BarChartGroupData(
                                 x: 0,
@@ -203,6 +262,7 @@ class AnalyticsPage extends ConsumerWidget {
                                   ),
                                 ],
                               ),
+
                               BarChartGroupData(
                                 x: 1,
                                 barRods: [
@@ -242,11 +302,15 @@ class AnalyticsPage extends ConsumerWidget {
                             .textTheme
                             .titleLarge,
                       ),
+
                       const SizedBox(height: 8),
+
                       const Text(
                         'Ingresos y gastos por mes',
                       ),
+
                       const SizedBox(height: 24),
+
                       SizedBox(
                         height: 280,
                         child: monthlyData.isEmpty
@@ -258,21 +322,23 @@ class AnalyticsPage extends ConsumerWidget {
                             : LineChart(
                                 LineChartData(
                                   minY: 0,
-                                  maxY: _monthlyChartMaxY(
-                                    monthlyData,
-                                  ),
+                                  maxY: monthlyScale.maxY,
+
                                   gridData:
                                       const FlGridData(
                                     show: true,
                                   ),
+
                                   borderData:
                                       FlBorderData(
                                     show: false,
                                   ),
+
                                   lineTouchData:
                                       const LineTouchData(
                                     enabled: true,
                                   ),
+
                                   titlesData:
                                       FlTitlesData(
                                     topTitles:
@@ -282,6 +348,7 @@ class AnalyticsPage extends ConsumerWidget {
                                         showTitles: false,
                                       ),
                                     ),
+
                                     rightTitles:
                                         const AxisTitles(
                                       sideTitles:
@@ -289,14 +356,31 @@ class AnalyticsPage extends ConsumerWidget {
                                         showTitles: false,
                                       ),
                                     ),
+
                                     leftTitles:
                                         AxisTitles(
                                       sideTitles:
                                           SideTitles(
                                         showTitles: true,
                                         reservedSize: 50,
+                                        interval:
+                                            monthlyScale
+                                                .interval,
+                                        getTitlesWidget:
+                                            (value, meta) {
+                                          return Text(
+                                            _formatChartValue(
+                                              value,
+                                            ),
+                                            style:
+                                                const TextStyle(
+                                              fontSize: 11,
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
+
                                     bottomTitles:
                                         AxisTitles(
                                       sideTitles:
@@ -327,13 +411,15 @@ class AnalyticsPage extends ConsumerWidget {
                                             ),
                                             child: Text(
                                               monthlyData[
-                                                  index].label,
+                                                      index]
+                                                  .label,
                                             ),
                                           );
                                         },
                                       ),
                                     ),
                                   ),
+
                                   lineBarsData: [
                                     LineChartBarData(
                                       spots: monthlyData
@@ -357,6 +443,7 @@ class AnalyticsPage extends ConsumerWidget {
                                         show: true,
                                       ),
                                     ),
+
                                     LineChartBarData(
                                       spots: monthlyData
                                           .asMap()
@@ -383,7 +470,9 @@ class AnalyticsPage extends ConsumerWidget {
                                 ),
                               ),
                       ),
+
                       const SizedBox(height: 16),
+
                       Row(
                         mainAxisAlignment:
                             MainAxisAlignment.center,
@@ -410,36 +499,38 @@ class AnalyticsPage extends ConsumerWidget {
     );
   }
 
-  double _chartMaxY(double income, double expenses) {
-    final maxValue = income > expenses ? income : expenses;
-
+  _ChartScale _chartScale(double maxValue) {
     if (maxValue <= 0) {
-      return 100;
+      return const _ChartScale(
+        maxY: 100,
+        interval: 20,
+      );
     }
 
-    return maxValue * 1.2;
-  }
+    final rawInterval = maxValue / 6;
 
-  double _monthlyChartMaxY(
-    List<_MonthlyData> data,
-  ) {
-    double maxValue = 0;
+    final magnitude =
+        pow(
+          10,
+          (log(rawInterval) / ln10).floor(),
+        ).toDouble();
 
-    for (final month in data) {
-      if (month.income > maxValue) {
-        maxValue = month.income;
-      }
+    final normalized = rawInterval / magnitude;
 
-      if (month.expenses > maxValue) {
-        maxValue = month.expenses;
-      }
-    }
+    final niceInterval = normalized <= 1
+        ? 1
+        : normalized <= 2
+            ? 2
+            : normalized <= 5
+                ? 5
+                : 10;
 
-    if (maxValue <= 0) {
-      return 100;
-    }
+    final interval = niceInterval * magnitude;
 
-    return maxValue * 1.2;
+    return _ChartScale(
+      maxY: interval * 7,
+      interval: interval,
+    );
   }
 
   List<_MonthlyData> _buildMonthlyData(
@@ -573,6 +664,16 @@ class AnalyticsPage extends ConsumerWidget {
           operation.date.isBefore(end);
     }).toList();
   }
+}
+
+class _ChartScale {
+  const _ChartScale({
+    required this.maxY,
+    required this.interval,
+  });
+
+  final double maxY;
+  final double interval;
 }
 
 class _MonthlyData {
