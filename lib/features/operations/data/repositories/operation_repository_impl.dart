@@ -16,14 +16,12 @@ class OperationRepositoryImpl implements OperationRepository {
   }
 
   @override
-  Future<void> addAll(
-    List<Operation> operations,
-  ) async {
-    final models = operations
-        .map(OperationModel.fromEntity)
-        .toList();
-
-    await _localDataSource.insertAll(models);
+  Future<void> addAll(List<Operation> operations) async {
+    await _localDataSource.insertAll(
+      operations
+          .map(OperationModel.fromEntity)
+          .toList(),
+    );
   }
 
   @override
@@ -45,6 +43,17 @@ class OperationRepositoryImpl implements OperationRepository {
   Future<void> update(Operation operation) {
     return _localDataSource.update(
       OperationModel.fromEntity(operation),
+    );
+  }
+
+  @override
+  Future<void> replaceAll(
+    List<Operation> operations,
+  ) async {
+    await _localDataSource.replaceAll(
+      operations
+          .map(OperationModel.fromEntity)
+          .toList(),
     );
   }
 }

@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/operation_providers.dart';
 
+final settingsBusyProvider =
+    StateProvider<bool>((ref) => false);
+
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -13,6 +16,12 @@ class SettingsPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    if (ref.read(settingsBusyProvider)) {
+      return;
+    }
+
+    ref.read(settingsBusyProvider.notifier).state = true;
+
     final messenger = ScaffoldMessenger.of(context);
 
     try {
@@ -62,6 +71,10 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
       );
+    } finally {
+      if (ref.exists(settingsBusyProvider)) {
+        ref.read(settingsBusyProvider.notifier).state = false;
+      }
     }
   }
 
@@ -69,6 +82,12 @@ class SettingsPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    if (ref.read(settingsBusyProvider)) {
+      return;
+    }
+
+    ref.read(settingsBusyProvider.notifier).state = true;
+
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -116,15 +135,14 @@ class SettingsPage extends ConsumerWidget {
         builder: (dialogContext) {
           return AlertDialog(
             title: const Text(
-              'Copia de seguridad encontrada',
+              'Restaurar copia de seguridad',
             ),
             content: Text(
               'La copia contiene '
-              '${backup.operations.length} '
-              'operaciones.\n\n'
-              'Las operaciones se añadirán a las que '
-              'ya existen en este dispositivo.\n\n'
-              '¿Quieres continuar?',
+              '${backup.operations.length} operaciones.\n\n'
+              'Al restaurarla, se sustituirán todas las '
+              'operaciones actuales por las de esta copia.\n\n'
+              'Esta acción no se puede deshacer.',
             ),
             actions: [
               TextButton(
@@ -158,7 +176,6 @@ class SettingsPage extends ConsumerWidget {
 
       await useCases.restore(operations);
 
-      // Obliga a Riverpod a volver a consultar SQLite.
       ref.invalidate(operationsProvider);
 
       if (!context.mounted) {
@@ -169,8 +186,7 @@ class SettingsPage extends ConsumerWidget {
         SnackBar(
           content: Text(
             'Restauración completada: '
-            '${operations.length} '
-            'operaciones importadas.',
+            '${operations.length} operaciones.',
           ),
         ),
       );
@@ -198,6 +214,10 @@ class SettingsPage extends ConsumerWidget {
           ),
         ),
       );
+    } finally {
+      if (ref.exists(settingsBusyProvider)) {
+        ref.read(settingsBusyProvider.notifier).state = false;
+      }
     }
   }
 
@@ -206,6 +226,8 @@ class SettingsPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
+    final isBusy = ref.watch(settingsBusyProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ajustes'),
@@ -216,32 +238,54 @@ class SettingsPage extends ConsumerWidget {
             title: Text('Datos'),
           ),
           ListTile(
-            leading: const Icon(
-              Icons.backup_outlined,
-            ),
+            enabled: !isBusy,
+            leading: isBusy
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(
+                    Icons.backup_outlined,
+                  ),
             title: const Text(
               'Exportar copia de seguridad',
             ),
             subtitle: const Text(
               'Guarda todas tus operaciones en un archivo JSON',
             ),
-            onTap: () {
-              _exportBackup(context, ref);
-            },
+            onTap: isBusy
+                ? null
+                : () {
+                    _exportBackup(context, ref);
+                  },
           ),
           ListTile(
-            leading: const Icon(
-              Icons.restore_outlined,
-            ),
+            enabled: !isBusy,
+            leading: isBusy
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(
+                    Icons.restore_outlined,
+                  ),
             title: const Text(
               'Importar copia de seguridad',
             ),
             subtitle: const Text(
               'Restaura operaciones desde un archivo JSON',
             ),
-            onTap: () {
-              _importBackup(context, ref);
-            },
+            onTap: isBusy
+                ? null
+                : () {
+                    _importBackup(context, ref);
+                  },
           ),
         ],
       ),

@@ -9,6 +9,8 @@ abstract interface class OperationRepository {
 
   Future<void> addAll(List<Operation> operations);
 
+  Future<void> replaceAll(List<Operation> operations);
+
   Future<void> update(Operation operation);
 
   Future<void> delete(int id);

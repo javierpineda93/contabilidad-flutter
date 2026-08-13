@@ -98,4 +98,23 @@ class OperationsLocalDataSourceImpl
 
     return OperationModel.fromMap(result.first);
   }
+
+  @override
+  Future<void> replaceAll(
+    List<OperationModel> operations,
+  ) async {
+    final db = await _db;
+
+    await db.transaction((transaction) async {
+      await transaction.delete('operations');
+
+      for (final operation in operations) {
+        await transaction.insert(
+          'operations',
+          operation.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
 }

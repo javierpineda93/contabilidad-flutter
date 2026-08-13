@@ -9,7 +9,10 @@ abstract interface class OperationsLocalDataSource {
 
   Future<void> insertAll(List<OperationModel> operations);
 
+  Future<void> replaceAll(List<OperationModel> operations);
+
   Future<void> update(OperationModel operation);
 
   Future<void> delete(int id);
+  
 }

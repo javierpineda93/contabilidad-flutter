@@ -7,6 +7,6 @@ class RestoreOperations {
   final OperationRepository _repository;
 
   Future<void> call(List<Operation> operations) {
-    return _repository.addAll(operations);
+    return _repository.replaceAll(operations);
   }
 }
